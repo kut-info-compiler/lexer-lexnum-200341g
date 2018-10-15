@@ -12,91 +12,108 @@ import java.util.Scanner;
  */
 
 public class Lexer {
-	static class Token {
-		static final String TYPE_INT = "INT";
-		static final String TYPE_DEC = "DEC";
-		static final String TYPE_ERR = "ERR";
+    static class Token {
+	static final String TYPE_INT = "INT";
+	static final String TYPE_DEC = "DEC";
+	static final String TYPE_ERR = "ERR";
 		
-		Token(String tokenType, int start, int len) {
-			this.tokenType = tokenType;
-			this.start = start;
-			this.len = len;
-		}
+	Token(String tokenType, int start, int len) {
+	    this.tokenType = tokenType;
+	    this.start = start;
+	    this.len = len;
+	}
 		
-		String tokenType;  /* トークンの種類 */
-		int start;         /* 文字列中のトークン開始位置 */
-		int len;           /* トークンの長さ */
-	}
+	String tokenType;  /* トークンの種類 */
+	int start;         /* 文字列中のトークン開始位置 */
+	int len;           /* トークンの長さ */
+    }
 	
-	static final int CT_P = 0;
-	static final int CT_X = 1;
-	static final int CT_0 = 2;
-	static final int CT_1 = 3;
-	static final int CT_A = 4;
-	static final int CT_OTHER = 5;
+    static final int CT_P = 0;
+    static final int CT_X = 1;
+    static final int CT_0 = 2;
+    static final int CT_1 = 3;
+    static final int CT_A = 4;
+    static final int CT_OTHER = 5;
 
-	/*
-	 * 文字を分類する
-	 *   [1-9] や [a-f] をまとめて扱えるようにするため．
-	 */
-	static int getCharType(int c) {
-		if (c == '.')             return CT_P;
-		if (c == 'x' || c == 'X') return CT_X;
-		if (c == '0')             return CT_0;
-		if ('1' <= c && c <= '9') return CT_1;
-		if ('a' <= c && c <= 'f') return CT_A;
-		if ('A' <= c && c <= 'F') return CT_A;
-		return CT_OTHER;
-	}
+    /*
+     * 文字を分類する
+     *   [1-9] や [a-f] をまとめて扱えるようにするため．
+     */
+    static int getCharType(int c) {
+	if (c == '.')             return CT_P;
+	if (c == 'x' || c == 'X') return CT_X;
+	if (c == '0')             return CT_0;
+	if ('1' <= c && c <= '9') return CT_1;
+	if ('a' <= c && c <= 'f') return CT_A;
+	if ('A' <= c && c <= 'F') return CT_A;
+	return CT_OTHER;
+    }
 	
-	int[][] delta = {
-		/* TODO */
-		/* 状態遷移表を作る */
-		/*   delta[現状態][入力記号] */
+    int[][] delta = {
+	/* TODO */
+	/* 状態遷移表を作る */
+	/*   delta[現状態][入力記号] */
 
-		/*  P  X  0  1  A  OTHER */
-		/*{ ?, ?, ?, ?, ?, ?}, /* 状態0 */
-		/*{ ?, ?, ?, ?, ?, ?}, /* 状態1 */
-		/*...*/
-	};
+	/*  P  X  0  1  A  OTHER */
+	{7, -1, 1, 3, 2, -1}, /* 状態0 初期状態*/
+	{4, 5, -1, 6, 2, -1}, /* 状態1 最初に0が入力された 受理状態*/
+	{-1, -1, 2, 2, 2, -1}, /* 状態2 INT 受理状態*/
+	{4, -1, 3, 3, 2, -1}, /* 状態3 INT 受理状態*/
+	{-1, -1, 4, 4, -1, -1}, /* 状態4 DEC 受理状態*/
+	{-1, -1, 2, 2, 2, -1}, /* 状態5 */
+	{-1, -1, 6, 6, 2, -1}, /* 状態6 */
+	{-1, -1, 4, 4, -1, -1}, /* 状態7 */
+	
+    };
 
-	/*
-	 * 文字列 str の start 文字目から字句解析しトークンを一つ返す
-	 */
-	Token getToken(String str, int start) {
-		/* 現在注目している文字 (先頭から p 文字目)  */
-		int p = start;
+    /*
+     * 文字列 str の start 文字目から字句解析しトークンを一つ返す
+     */
+    Token getToken(String str, int start) {
+	/* 現在注目している文字 (先頭から p 文字目)  */
+	int p = start;
 
-		/* 最後の受理状態のマーカとその時何文字目まで読んだか */
-		String acceptMarker = Token.TYPE_ERR;
-		int acceptPos = start;
+	/* 最後の受理状態のマーカとその時何文字目まで読んだか */
+	String acceptMarker = Token.TYPE_ERR;
+	int acceptPos = start;
 
-		/* 現在の状態 */
-		int currentState = 0;
+	/* 現在の状態 */
+	int currentState = 0;
 
-		while (p < str.length()) {
-			int c = str.charAt(p); /* str の p 文字目を読み取る */
-			p++;
+	while (p < str.length()) {
+	    int c = str.charAt(p); /* str の p 文字目を読み取る */
+	    p++;
 			
-			int ct = getCharType(c);
-			int nextState = delta[currentState][ct];
+	    int ct = getCharType(c);
+	    int nextState = delta[currentState][ct];
 
-			/* TODO */
-			/* 行先がなければループを抜ける */
-			/* 行先が受理状態であれば「最後の受理状態」を更新する */
-
-			currentState = nextState;
-		}
+	    /* TODO */
+	    /* 行先がなければループを抜ける */
+	    if (nextState == -1) break;
+	    
+	    /* 行先が受理状態であれば「最後の受理状態」を更新する */
+	    if (nextState == 4) {
+		// 小数
+		acceptMarker = Token.TYPE_DEC;
+		acceptPos = p;
+	    } else if (1 <= nextState && nextState <= 3) {
+		// 整数
+		acceptMarker = Token.TYPE_INT;
+		acceptPos = p;
+	    }
+	    
+	    currentState = nextState;
+	}
 		
-		return new Token(acceptMarker, start, acceptPos - start);
-	}
+	return new Token(acceptMarker, start, acceptPos - start);
+    }
 	
-	public static void main(String[] args) {
-		Scanner sc = new Scanner(System.in);
-		String str = sc.nextLine();  /* 1行読み取る */
-		Lexer lex = new Lexer();
-		Token t = lex.getToken(str, 0);
-		System.out.print(t.tokenType);
-		System.out.println(str.substring(t.start, t.start + t.len));
-	}
+    public static void main(String[] args) {
+	Scanner sc = new Scanner(System.in);
+	String str = sc.nextLine();  /* 1行読み取る */
+	Lexer lex = new Lexer();
+	Token t = lex.getToken(str, 0);
+	System.out.print(t.tokenType);
+	System.out.println(str.substring(t.start, t.start + t.len));
+    }
 }
